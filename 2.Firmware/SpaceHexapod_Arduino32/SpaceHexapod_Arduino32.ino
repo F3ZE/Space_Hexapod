@@ -4,7 +4,7 @@
    引脚：SDA:21   SCL:22
    Designer: Allen
    regenerator:SF
-   Date:2025-4-10
+   Date:2025-4-17
 *******************************************************/
 #include <WiFi.h>
 #include <Wire.h>
@@ -13,11 +13,12 @@
 #define led 0
 #define MAX_SRV_CLIENTS 3   //最大同时联接数，即你想要接入的设备数量，8266tcpserver只能接入五个
 
-const char *ssid = "Baize"; 
+const char *ssid = "Baize2"; 
 const char *password = "baizerobot"; 
 //修改上
 // 定义电磁铁控制引脚（按实际接线修改）
-const int emagPins[6] = {2, 4, 5, 12, 13, 14}; // 对应腿部1~6
+const int emagPins[6] = {32, 35, 36, 39, 34, 33}; // 对应腿部1~6
+const int pinRemapPwm1[15] = {4,5,6,1,2,3,15,14,13,12,11,10,9,8,0};
 //修改下
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();               //驱动1~16或(0~15)号舵机
@@ -38,13 +39,18 @@ WiFiClient serverClients[MAX_SRV_CLIENTS];
 
 char cmd = 'e';//a:forward;   b:backward;   c:left;   d:right;   e:stop;
 
-int rec[18] = {327,327,327,327,327,327,327,327,327,327,327,327,327,327,327,327,327,327};
+int rec[18] = {317,297,317,
+               317,337,317,
+               317,357,317,
+               317,297,290,
+               377,337,317,
+               317,337,317};
 int direct[18] = {-1,-1,-1,
 -1,-1,-1,
--1,1,1,
--1,1,1,
 -1,-1,-1,
--1,1,1
+-1,-1,-1,
+-1,-1,-1,
+-1,1,-1
 };
 
 void setup() {
@@ -65,15 +71,16 @@ void setup() {
   pwm.setPWMFreq(50);  // Analog servos run at ~50 Hz updates
   pwm1.setPWMFreq(50);  // Analog servos run at ~50 Hz updates
 
-    for(int i=0;i<16;i++)
+    for(int i=0;i<15;i++)
     {
-      pwm.setPWM(i, 0, rec[i]);
+      int p = pinRemapPwm1[i];
+      pwm.setPWM(p, 0, rec[i]);
       
     }
-      pwm1.setPWM(0, 0, rec[16]);
-      pwm1.setPWM(1, 0, rec[17]);
+      pwm1.setPWM(0, 0, rec[15]);
+      pwm1.setPWM(1, 0, rec[16]);
+      pwm1.setPWM(2, 0, rec[17]);
   delay(1000);
-
   pinMode(led, OUTPUT);
   digitalWrite(led, 0);
   WiFi.begin(ssid, password);
@@ -87,11 +94,11 @@ void setup() {
 }
 
 void loop() {
-
-  blink();
   
-  uint8_t i;
-    if (server.hasClient())
+
+   uint8_t i;
+
+    if (server.hasClient())//WIFISETUP
     {
         for (i = 0; i < MAX_SRV_CLIENTS; i++)
         {
@@ -122,129 +129,457 @@ void loop() {
         }
     }
 
-  
-//    for(int j=0;j<120;j++)
-//    {
-//        for(int i=0;i<16;i++)
-//        {
-//          pwm.setPWM(i, 0, map(forwardF[j][i]*direct[i],-90,90,-225,225)+rec[i]);
-//          
-//        }
-//        pwm1.setPWM(16-16, 0, map(forwardF[j][16]*direct[16],-90,90,-225,225)+rec[16]);
-//        pwm1.setPWM(17-16, 0, map(forwardF[j][17]*direct[17],-90,90,-225,225)+rec[17]);
-//        delay(10);
-//    }
+/*
+      for(int j=0;j<120;j++)
+      {
+          for(int i=0;i<16;i++)
+          {
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forwardF[j][p]*direct[p],-90,90,-225,225)+rec[p]);
+            
+          }
+          pwm1.setPWM(0, 0, map(forwardF[j][15]*direct[15],-90,90,-225,225)+rec[15]);
+          pwm1.setPWM(1, 0, map(forwardF[j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forwardF[j][17]*direct[17],-90,90,-225,225)+rec[17]);
+
+          delay(10);
+      }
+*/
 
     if(cmd == 'a')//前进
     {
-          for(int j=0;j<120;j++)
+          for(int j=0;j<40;j++)
           {
-/*
-              //-- 控制电磁铁：前半周期腿1/3/5吸附，后半周期腿2/4/6吸附 --
-          for (int leg = 0; leg < 6; leg++) {
-            if (j < 60) { 
-              // 前半周期：腿1/3/5吸附（对应索引0,2,4）
-              digitalWrite(emagPins[leg], (leg % 2 == 0) ? HIGH : LOW);
-            } else { 
-              // 后半周期：腿2/4/6吸附（对应索引1,3,5）
-              digitalWrite(emagPins[leg], (leg % 2 == 1) ? HIGH : LOW);
-            }
-          }
-*/
+        //       //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], LOW); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], LOW); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], LOW); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], LOW); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], LOW); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[0], HIGH);  // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], LOW); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6digitalWrite(emagPins[leg], (leg == 1 || leg == 2|| leg == 3|| leg == 4|| leg == 5|| leg == 0) ? HIGH : LOW : LOW : LOW : LOW : LOW);
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], HIGH);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], HIGH);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], HIGH);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
+
         //-- 原有舵机控制代码 --
-          for(int i=0;i<16;i++)
+          for(int i=0;i<15;i++)
           {
-            pwm.setPWM(i, 0, map(forwardF[j][i]*direct[i],-90,90,-225,225)+rec[i]);
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[j][i]*direct[i],-90,90,-225,225)+rec[i]);
             
           }
-          pwm1.setPWM(16-16, 0, map(forwardF[j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardF[j][17]*direct[17],-90,90,-225,225)+rec[17]);
+
+          pwm1.setPWM(0, 0, map(forward[j][15]*direct[15],-90,90,-225,225)+rec[15]);
+          pwm1.setPWM(1, 0, map(forward[j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forward[j][17]*direct[17],-90,90,-225,225)+rec[17]);
+
           delay(10);
       }
     }
+
+
     else if(cmd == 'b')//后退
     {
-      for(int j=0;j<120;j++)
+      for(int j=0;j<40;j++)
       {
-/*
-          // 电磁铁控制（反向三脚架步态）
-          for(int leg=0; leg<6; leg++) {
-            digitalWrite(emagPins[leg], 
-              (j < 60) ? (leg%2 == 1) : (leg%2 == 0)); // 与前进模式相反
-          }
-*/
+        //    //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6digitalWrite(emagPins[leg], (leg == 1 || leg == 2|| leg == 3|| leg == 4|| leg == 5|| leg == 0) ? HIGH : LOW : LOW : LOW : LOW : LOW);
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
           // 原有舵机控制代码
-          for(int i=0;i<16;i++)
+          for(int i=0;i<15;i++)
           {
-            pwm.setPWM(i, 0, map(forwardF[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[39-j][i]*direct[i],-90,90,-225,225)+rec[i]);
             
           }
-          pwm1.setPWM(16-16, 0, map(forwardF[119-j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardF[119-j][17]*direct[17],-90,90,-225,225)+rec[17]);
+          pwm1.setPWM(0, 0, map(forward[39-j][15]*direct[15],-90,90,-225,225)+rec[15]);
+          pwm1.setPWM(1, 0, map(forward[39-j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forward[39-j][17]*direct[17],-90,90,-225,225)+rec[17]);
           delay(10);
       }      
       
     }
     else if(cmd == 'c')
     {
-      for(int j=0;j<120;j++)
+      for(int j=0;j<40;j++)
       {
-/*
-        // 电磁铁控制（左转特殊步态）
-          for(int leg=0; leg<6; leg++){
-            // 左转时左侧腿（1,3,5）全程吸附，右侧腿交替
-            if(leg%2 == 0){ // 左侧腿（索引0,2,4）
-              digitalWrite(emagPins[leg], HIGH); 
-            }else{
-              digitalWrite(emagPins[leg], (j < 60) ? LOW : HIGH); // 右侧腿后半周期吸附
-            }
-          }
-*/
+        //  //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6digitalWrite(emagPins[leg], (leg == 1 || leg == 2|| leg == 3|| leg == 4|| leg == 5|| leg == 0) ? HIGH : LOW : LOW : LOW : LOW : LOW);
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
           // 原有舵机控制代码
           for(int i=0;i<6;i++)
-          {
-            pwm.setPWM(i, 0, map(forwardF[j][i]*direct[i],-90,90,-225,225)+rec[i]);
+          { 
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[j][i]*direct[i],-90,90,-225,225)+rec[i]);
             
           }
           for(int i=6;i<15;i++)
-          {
-            pwm.setPWM(i, 0, map(forwardF[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);
+          { 
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[39-j][i]*direct[i],-90,90,-225,225)+rec[i]);
             
           }
-          pwm.setPWM(15, 0, map(forwardF[j][15]*direct[15],-90,90,-225,225)+rec[15]);
-          pwm1.setPWM(16-16, 0, map(forwardF[j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardF[j][17]*direct[17],-90,90,-225,225)+rec[17]);
+          pwm.setPWM(0, 0, map(forward[j][15]*direct[15],-90,90,-225,225)+rec[15]);
+          pwm1.setPWM(1, 0, map(forward[j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forward[j][17]*direct[17],-90,90,-225,225)+rec[17]);
           delay(10);
       }
     }
     else if(cmd == 'd')
     {
-      for(int j=0;j<120;j++)
+      for(int j=0;j<40;j++)
       {
-/*
-         // 电磁铁控制（右转镜像逻辑）
-          for(int leg=0; leg<6; leg++){
-            if(leg%2 == 1){ // 右侧腿（索引1,3,5）
-              digitalWrite(emagPins[leg], HIGH);
-            }else{
-              digitalWrite(emagPins[leg], (j < 60) ? LOW : HIGH); 
-            }
-          }
-*/
+        //  //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6digitalWrite(emagPins[leg], (leg == 1 || leg == 2|| leg == 3|| leg == 4|| leg == 5|| leg == 0) ? HIGH : LOW : LOW : LOW : LOW : LOW);
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
           // 原有舵机控制代码
           for(int i=0;i<6;i++)
           {
-            pwm.setPWM(i, 0, map(forwardF[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);
-            
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);          
           }
           for(int i=6;i<15;i++)
           {
-            pwm.setPWM(i, 0, map(forwardF[j][i]*direct[i],-90,90,-225,225)+rec[i]);
-            
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forward[j][i]*direct[i],-90,90,-225,225)+rec[i]);            
           }
-          pwm.setPWM(15, 0, map(forwardF[119-j][15]*direct[15],-90,90,-225,225)+rec[15]);
-          pwm1.setPWM(16-16, 0, map(forwardF[119-j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardF[119-j][17]*direct[17],-90,90,-225,225)+rec[17]);
+          pwm.setPWM(0, 0, map(forward[39-j][15]*direct[15],-90,90,-225,225)+rec[15]);
+          pwm1.setPWM(1, 0, map(forward[39-j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forward[39-j][17]*direct[17],-90,90,-225,225)+rec[17]);
           delay(10);
       }
     }
@@ -252,21 +587,103 @@ void loop() {
     {
       for(int j=0;j<120;j++)
       {
-/*
-        // 电磁铁控制（横向移动特殊逻辑）
-          for(int leg=0; leg<6; leg++){
-            // 右横移时奇数腿组吸附
-            digitalWrite(emagPins[leg], (j%40 < 20) ? (leg%3 == 0) : (leg%3 == 1));
-          }
-*/
+        //  //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
           // 原有舵机控制代码
-          for(int i=0;i<16;i++)
+          for(int i=0;i<15;i++)
           {
-            pwm.setPWM(i, 0, map(forwardFHer[j][i]*direct[i],-90,90,-225,225)+rec[i]);
-            
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forwardFHer[j][i]*direct[i],-90,90,-225,225)+rec[i]);            
           }
-          pwm1.setPWM(16-16, 0, map(forwardFHer[j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardFHer[j][17]*direct[17],-90,90,-225,225)+rec[17]);
+          pwm1.setPWM(0, 0, map(forwardFHer[j][15]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(1, 0, map(forwardFHer[j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forwardFHer[j][17]*direct[17],-90,90,-225,225)+rec[17]);
           delay(10);
       }
     }
@@ -274,33 +691,115 @@ void loop() {
     {
       for(int j=0;j<120;j++)
       {
-/*
-        // 电磁铁控制（镜像右横移）
-          for(int leg=0; leg<6; leg++){
-            digitalWrite(emagPins[leg], (j%40 < 20) ? (leg%3 == 1) : (leg%3 == 0));
-          }
-*/
+        //  //-- 控制电磁铁：将120个周期分为10个条件，每个条件控制不同腿 --
+        //   for (int leg = 0; leg < 6; leg++) {
+        //   int condition = j / 12; // 将j=0~119分为10个条件（0~9），每个条件占12个j值
+        //   // 根据条件选择需要吸附的腿（预留逻辑，用户需按需填充）
+        //   switch (condition) {
+        //     case 0: // 条件0（j=0~11）：控制腿1和4（索引0和3）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 1: // 条件1（j=12~23）：控制腿2和5（索引1和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 2: // 条件2（j=24~35）：控制腿3和6（索引2和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 3: // 条件3（j=36~47）：控制腿1和2（索引0和1）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 4: // 条件4（j=48~59）：控制腿3和4（索引2和3）digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6digitalWrite(emagPins[leg], (leg == 1 || leg == 2|| leg == 3|| leg == 4|| leg == 5|| leg == 0) ? HIGH : LOW : LOW : LOW : LOW : LOW);
+        //       break;
+        //     case 5: // 条件5（j=60~71）：控制腿5和6（索引4和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 6: // 条件6（j=72~83）：控制腿1和5（索引0和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 7: // 条件7（j=84~95）：控制腿2和6（索引1和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 8: // 条件8（j=96~107）：控制腿3和5（索引2和4）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     case 9: // 条件9（j=108~119）：控制腿4和6（索引3和5）
+        //         digitalWrite(emagPins[0], HIGH); // 腿1
+        //         digitalWrite(emagPins[1], LOW);  // 腿2
+        //         digitalWrite(emagPins[2], HIGH); // 腿3
+        //         digitalWrite(emagPins[3], LOW);  // 腿4
+        //         digitalWrite(emagPins[4], HIGH); // 腿5
+        //         digitalWrite(emagPins[5], LOW);  // 腿6
+        //       break;
+        //     default: // 超出范围时关闭所有腿
+        //       digitalWrite(emagPins[leg], LOW);
+        //   }
+        // }
           // 原有舵机控制代码
-          for(int i=0;i<16;i++)
+          for(int i=0;i<15;i++)
           {
-            pwm.setPWM(i, 0, map(forwardFHer[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);
+            int p = pinRemapPwm1[i];
+            pwm.setPWM(p, 0, map(forwardFHer[119-j][i]*direct[i],-90,90,-225,225)+rec[i]);
             
           }
-          pwm1.setPWM(16-16, 0, map(forwardFHer[119-j][16]*direct[16],-90,90,-225,225)+rec[16]);
-          pwm1.setPWM(17-16, 0, map(forwardFHer[119-j][17]*direct[17],-90,90,-225,225)+rec[17]);
+          pwm1.setPWM(0, 0, map(forwardFHer[119-j][15]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(1, 0, map(forwardFHer[119-j][16]*direct[16],-90,90,-225,225)+rec[16]);
+          pwm1.setPWM(2, 0, map(forwardFHer[119-j][17]*direct[17],-90,90,-225,225)+rec[17]);
           delay(10);
       }      
-      
     }
     else
     {
-/*
-          // 关闭所有电磁铁
-      for (int leg = 0; leg < 6; leg++) {
-        digitalWrite(emagPins[leg], LOW);
-      }
-      delay(100);
-*/
+
+      //pwm.setPWM(6, 0, 0+rec[3]);
+      //     // 关闭所有电磁铁
+      // for (int leg = 0; leg < 6; leg++) {
+      //   digitalWrite(emagPins[leg], LOW);
+      // }
       delay(100);
     }
 }

@@ -62,10 +62,10 @@ servo19 -> pwm_1.setPWM(3,x,x)
 
 2 -> IO18
 
-<u>3 -> IO5</u>
+3 -> IO5
 
 4 -> IO27
 
 5 -> IO14
 
-<u>6 -> IO12</u>
+6 -> IO12

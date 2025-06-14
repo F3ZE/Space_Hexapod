@@ -51,3 +51,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# SolidWorks文件例外
+!*.SLDPRT
+!*.SLDASM
+!*.SLDDRW
+!*.DWG

@@ -78,6 +78,20 @@ GPATH
 # cache dir
 .cache/
 
+# IDE settings
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build directories
+build/
+*/build/
+**/build/
+build_*/
+*/build_*/
+**/build_*/
+
 # Components Unit Test Apps files
 components/**/build/
 components/**/build_*_*/
@@ -125,27 +139,16 @@ coverage_report/
 
 test_multi_heap_host
 
-# VS Code Settings
-.vscode/
-
 # VIM files
 *.swp
 *.swo
 
-# Sublime Text files
-*.sublime-project
-*.sublime-workspace
-
 # Clion IDE CMake build & config
-.idea/
 cmake-build-*/
 
 # Results for the checking of the Python coding style and static analysis
 .mypy_cache
 flake8_output.txt
-
-# ESP-IDF default build directory name
-build
 
 # lock files for examples and components
 dependencies.lock

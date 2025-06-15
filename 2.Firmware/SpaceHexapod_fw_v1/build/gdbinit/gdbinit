@@ -1,0 +1,2 @@
+source G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/gdbinit/symbols
+source G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/gdbinit/connect

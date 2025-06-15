@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/CMakeFiles/bootloader
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/CMakeFiles/bootloader.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/CMakeFiles/bootloader-complete.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+G:/dev/Space_Hexapod/2.Firmware/SpaceHexapod_fw_v1/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

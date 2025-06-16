@@ -51,10 +51,29 @@ int direction = 0; // 行走方向: -1后退, 0停止, 1前进
 // 步态参数
 float Hb1 = 20; // 大腿弯曲角
 float Hb2 = -5; // 小腿弯曲角
-float Hs0 = 70; // 髋关节摆动比例
+float Hs0 = 35; // 髋关节摆动比例
 float Hs1 = 25; // 大腿摆动比例
 float Hv2 = 5.5; // 小腿摆动加权
 float Ho = 55; // 髋关节摆动偏移
+
+// 基础角度值（中心位置）
+int base_angles[SERVO_COUNT] = {
+  30, 45, 120,// 左前腿 (髋、大腿、小腿)
+  90, 45, 120, // 左中腿
+  150, 45, 120, // 左后腿
+  25, 125, 60, // 右后腿
+  80, 125, 60, // 右中腿
+  155, 125, 60 // 右前腿
+};
+
+int k[SERVO_COUNT] = {
+  -1, -1, -1, // 左前腿 (髋、大腿、小腿)
+  -1, -1, -1, // 左中腿
+  -1, -1, -1, // 左后腿
+  -1, -1, -1, // 右后腿
+  -1, -1, -1, // 右中腿
+  -1, -1, -1 // 右前腿
+};
 
 // I2C初始化
 static esp_err_t i2c_master_init(void) {
@@ -152,17 +171,10 @@ static esp_err_t set_servo_angle(int servo_index, int angle) {
   int pwm_value = map_angle(angle);
   uint8_t addr = (servo->pwm_controller == 0) ? PCA9685_ADDR_0 : PCA9685_ADDR_1;
   esp_err_t ret = pca9685_set_pwm(addr, servo->channel, 0, pwm_value);
+
   ESP_LOGI(TAG, "舵机: %s 角度: %d PWM: %d", servo->name, angle, pwm_value);
+
   return ret;
-}
-
-
-
-// 设置所有舵机角度的通用函数
-void set_all_servos_angle(int angle) {
-  for (int servo_index = 0; servo_index < NUM_SERVOS; servo_index++) {
-    set_servo_angle(servo_index, angle);
-  }
 }
 
 // 更新步态函数 - 实现三角步态的前进后退功能
@@ -215,24 +227,21 @@ void updateGait() {
   utotal[5] -= (Hs1 * uf2 + Hb2) * Hv2;
   utotal[11] += (Hs1 * uf2 + Hb2) * 1.1 * Hv2;
   utotal[17] += (Hs1 * uf2 + Hb2) * 1.1 * Hv2;
+
+  for (int i = 0; i<3; i++) {
+    if (utotal[i*3+2]<0)
+      utotal[i*3+2] = 0;
+    if (utotal[(i+3)*3+2]>0)
+      utotal[(i+3)*3+2] = 0;
+  }
 }
 
 // 将计算好的角度应用到舵机
 void applyServoAngles() {
-  // 基础角度值（中心位置）
-  int base_angles[SERVO_COUNT] = {
-      90, 90, 90, // 左前腿 (髋、大腿、小腿)
-      90, 90, 90, // 左中腿
-      90, 90, 90, // 左后腿
-      90, 90, 90, // 右后腿
-      90, 90, 90, // 右中腿
-      90, 90, 90 // 右前腿
-  };
-
-  // 将计算的角度应用到实际舵机
+  // 将0计算的角度应用到实际舵机
   for (int i = 0; i < SERVO_COUNT; i++) {
     // 将计算结果加上基础角度
-    int angle = (int)(base_angles[i] + utotal[i]);
+    int angle = (int)(base_angles[i]+utotal[i]*k[i]);
     // 确保角度在有效范围内
     if (angle < 0) angle = 0;
     if (angle > 180) angle = 180;
@@ -256,6 +265,15 @@ void gaitControlTask(void* pvParameters) {
     // 固定频率执行
     vTaskDelayUntil(&last_wake_time, delay_time);
   }
+}
+
+// 初始化站立姿势 - 让机器人进入标准姿势
+void initStandingPose() {
+  for (int i = 0; i < NUM_SERVOS; i++) {
+    // set_servo_angle(i, base_angles[i]);
+    set_servo_angle(i, 90);
+  }
+  ESP_LOGI(TAG, "机器人初始化为站立姿势");
 }
 
 // 初始化步态控制
@@ -393,33 +411,6 @@ static esp_err_t control_handler(httpd_req_t* req) {
   return ESP_OK;
 }
 
-// 初始化站立姿势 - 让机器人进入标准姿势
-void initStandingPose() {
-  // 为了简化，我们将所有舵机设置为默认的90度
-  for (int i = 0; i < SERVO_COUNT; i++) {
-    // 对于某些关节可能需要不同的初始角度
-    int initialAngle = 90;
-
-    // 设置髋关节的初始位置
-    if (i == 0) initialAngle = 90 + Ho; // 左前腿髋关节
-    else if (i == 6) initialAngle = 90 - Ho; // 左后腿髋关节
-    else if (i == 9) initialAngle = 90 - Ho; // 右后腿髋关节
-    else if (i == 15) initialAngle = 90 + Ho; // 右前腿髋关节
-
-      // 设置大腿关节的初始位置 (略微抬起)
-    else if (i == 1 || i == 4 || i == 7 || i == 10 || i == 13 || i == 16) {
-      initialAngle = 90 + Hb1;
-    }
-    // 设置小腿关节的初始位置
-    else if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14 || i == 17) {
-      initialAngle = 90 + Hb2;
-    }
-
-    set_servo_angle(i, initialAngle);
-  }
-
-  ESP_LOGI(TAG, "机器人初始化为站立姿势");
-}
 
 // 注册HTTP处理函数
 httpd_uri_t root = {
@@ -494,11 +485,6 @@ void app_main(void) {
   ESP_ERROR_CHECK(pca9685_init(PCA9685_ADDR_1));
   ESP_LOGI(TAG, "PCA9685 初始化成功");
 
-  // 先将所有舵机设置到中间位置
-  for (int servo_index = 0; servo_index < NUM_SERVOS; servo_index++) {
-    set_servo_angle(servo_index, 90); // 初始化到中间位置
-  }
-
   // 等待舵机到达初始位置
   vTaskDelay(500 / portTICK_PERIOD_MS);
 
@@ -514,6 +500,10 @@ void app_main(void) {
   // 初始化 Wi-Fi AP
   wifi_init_softap();
 
+
+  // set_servo_angle(0,0);
+  // set_servo_angle(1,90);
+  // set_servo_angle(2,180);
   // 启动 Web 服务器
   httpd_handle_t server = start_webserver();
 
